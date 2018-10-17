@@ -1,0 +1,41 @@
+node washingM(start,completed,c: bool) returns (step, power:int)
+let
+    automaton
+     state Off do 
+        step = 0;
+        power = 0;
+     unless start then WaterF
+
+     state WaterF do
+        step = 1;
+        power = 15;
+     unless completed & not c then Standby
+        | completed & c then Washing
+
+     state Standby do
+        step = 3;
+        power = 0;
+     unless c then Washing
+
+     state Washing do
+        step = 4;
+        power = 250;
+     unless completed then Rinse
+
+     state Rinse do
+        step = 5;
+        power = 200;
+     unless completed then Spin
+
+     state Spin do
+        step = 6;
+        power = 800;
+     unless completed then Off
+
+    end 
+tel
+
+node wash(start,completed,c: bool) returns (step, power:int)
+let
+    (step, power) = inlined washingM(start,completed,c);
+tel
