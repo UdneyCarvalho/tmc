@@ -1,0 +1,88 @@
+(* P4 *)
+
+
+node radiator(up1, down1, up2, down2, rad_c1, rad_c2: bool) returns (step_rad, power_rad:int)
+let
+    automaton
+     state Off do 
+        step_rad = 0;
+        power_rad = 0;
+     unless up1 or not rad_c1 then FrostP
+
+     state FrostP do
+        step_rad = 1;
+        power_rad = 300;
+     unless up1 & rad_c1 then Eco
+        | up2 & rad_c2 then High
+        | down1 or not rad_c1 then Off
+
+     state Eco do
+        step_rad = 2;
+        power_rad = 1500;
+     unless up2 & rad_c2 then High
+     	| down1 or not rad_c1 then FrostP 
+
+     state High do
+        step_rad = 3;
+        power_rad = 2000;
+     unless down2 or not rad_c2 then FrostP
+     	| down1 or not rad_c1 then Eco
+
+
+    end 
+tel
+
+node door(push, c_door: bool) returns (door_open: bool)
+let
+    automaton
+     state Closed do 
+        door_open = false;
+     unless push & c_door then Open
+
+     state Open do
+        door_open = true;
+     unless push & not c_door then Closed
+    
+    end 
+tel
+
+
+node presence_contol(presence: bool) returns (room_oc: bool)
+let
+    automaton
+     state Empty do 
+        room_oc = false;
+     unless presence then Ocupied
+
+     state Ocupied do
+        room_oc = true;
+     unless not presence then Empty
+    
+    end 
+tel
+
+node window(push, c_window: bool) returns (window_open: bool)
+let
+    automaton
+     state Closed do 
+        window_open = false;
+     unless push & c_window then Open
+
+     state Open do
+        window_open = true;
+     unless push & not c_window then Closed
+    
+    end 
+tel
+
+node p4(up1_rad, down1_rad, up2_rad, down2_rad,push_door,push_window, presence: bool) returns (step_radP, power_radP:int;  door_openP, room_oc,window_openP:bool) 
+     contract
+     enforce (room_oc or not(door_openP or window_openP)) & (not(door_openP or window_openP) or (step_radP = 0 or step_radP = 1))
+     with (c_doorP,c_windowP, c1p, c2p: bool)
+
+let
+    (step_radP, power_radP) = inlined radiator(up1_rad, down1_rad, up2_rad, down2_rad, c1p, c2p);
+    door_openP = inlined door(push_door, c_doorP);
+    room_oc = inlined presence_contol(presence);
+    window_openP = inlined window(push_window, c_windowP)
+tel
