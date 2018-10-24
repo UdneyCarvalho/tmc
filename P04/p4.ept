@@ -1,7 +1,7 @@
 (* P4 *)
 
 
-node radiator(up1, down1, up2, down2, rad_c1, rad_c2: bool) returns (step_rad, power_rad:int)
+node radiator(up1, down1, up2, down2, rad_c1, rad_c2, rad_c3: bool) returns (step_rad, power_rad:int)
 let
     automaton
      state Off do 
@@ -14,7 +14,7 @@ let
         power_rad = 300;
      unless up1 & rad_c1 then Eco
         | up2 & rad_c2 then High
-        | down1 or not rad_c1 then Off
+        | down1 or not rad_c3 then Off
 
      state Eco do
         step_rad = 2;
@@ -41,7 +41,7 @@ let
 
      state Open do
         door_open = true;
-     unless push & not c_door then Closed
+     unless push or not c_door then Closed
     
     end 
 tel
@@ -70,18 +70,23 @@ let
 
      state Open do
         window_open = true;
-     unless push & not c_window then Closed
+     unless push or not c_window then Closed
     
     end 
 tel
 
 node p4(up1_rad, down1_rad, up2_rad, down2_rad,push_door,push_window, presence: bool) returns (step_radP, power_radP:int;  door_openP, room_oc,window_openP:bool) 
      contract
-     enforce (room_oc or not(door_openP or window_openP)) & (not(door_openP or window_openP) or (step_radP = 0 or step_radP = 1))
-     with (c_doorP,c_windowP, c1p, c2p: bool)
+     var rule2, rule3: bool;
+     let 
+        rule2 = room_oc or not(door_openP or window_openP);
+        rule3 = not(door_openP or window_openP) or (step_radP = 0 or step_radP = 1);
+     tel
+     enforce (rule2) & (rule3)
+     with (c_doorP,c_windowP, c1p, c2p, c3p: bool)
 
 let
-    (step_radP, power_radP) = inlined radiator(up1_rad, down1_rad, up2_rad, down2_rad, c1p, c2p);
+    (step_radP, power_radP) = inlined radiator(up1_rad, down1_rad, up2_rad, down2_rad, c1p, c2p, c3p);
     door_openP = inlined door(push_door, c_doorP);
     room_oc = inlined presence_contol(presence);
     window_openP = inlined window(push_window, c_windowP)
