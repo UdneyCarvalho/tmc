@@ -1,0 +1,182 @@
+(*Hierrarchical controler_test01*)
+
+node living_room_presence(presence: bool) returns (has_presence: bool)
+let
+    automaton
+
+	    state Empty do
+	    	has_presence = false; 
+	    unless presence then Occupied
+	    
+	    state Occupied do
+	    	has_presence = true;
+	    unless presence then Empty
+
+    end 
+tel
+
+node living_room_lamp_1(turn_on_l1, c_l1, c_l2: bool) returns (is_on_l1: bool)
+let
+	automaton
+		state Off do
+			is_on_l1 = false;
+		unless (turn_on_l1 & c_l1) or not c_l2 then On
+
+		state On do
+			is_on_l1 = true;
+		unless (turn_on_l1 & c_l1) or not c_l2 then Off
+	end
+tel
+
+node room_lamp(turn_on_l, c_l1, c_l2: bool) returns (is_on_l: bool)
+let
+	automaton
+
+		state Off do
+			is_on_l = false;
+		unless (turn_on_l & c_l1) then On
+
+		state On do
+			is_on_l = true;
+		unless (turn_on_l & c_l1) or not c_l2 then Off
+	end
+tel
+
+node room_reading_lamp(turn_on_rl: bool) returns (is_on_rl: bool)
+let
+	automaton
+		state Off do
+			is_on_rl = false;
+		unless turn_on_rl then On
+
+		state On do
+			is_on_rl = true;
+		unless turn_on_rl then Off
+	end
+tel
+
+node living_room_air_conditioner(turn_on_lac, c_lac, c2_lac: bool) returns (working_state_lac: int)
+let
+	automaton
+		state Off do
+			working_state_lac = 0;
+		unless turn_on_lac & c_lac then On | turn_on_lac & c2_lac  then Wait
+
+		state On do
+			working_state_lac = 2;
+		unless turn_on_lac then Off | not c2_lac then Wait | not c_lac then Off
+
+		state Wait do
+			working_state_lac = 1;
+		unless turn_on_lac then Off | c2_lac then On | not c_lac then Off
+	end
+tel
+
+
+node tv(turn_on_tv: bool) returns (is_tv_on: bool)
+let
+	automaton
+		state Off do
+			is_tv_on = false;
+		unless turn_on_tv then On
+
+		state On do
+			is_tv_on = true;
+		unless turn_on_tv then Off
+	end
+tel
+
+node washing_machine(turn_on_wm: bool) returns (is_working_wm: bool)
+let
+	automaton
+		state Off do
+			is_working_wm = false;
+		unless turn_on_wm then Washing
+
+		state Washing do
+			is_working_wm = true;
+		unless turn_on_wm then Off
+	end
+tel
+
+node window(do_open: bool) returns (is_w_opened: bool)
+let
+	automaton
+		state Closed do
+			is_w_opened = false;
+		unless do_open then Opened
+
+		state Opened do
+			is_w_opened = true;
+		unless do_open then Closed
+	end
+tel
+
+(*################## Sala de estar ####################*)
+node supervisor_living(presence, turn_on_l1, turn_on_l2, turn_on_tv(*, turn_on_lac*): bool) returns (has_presence, is_on_l1, is_on_l2, is_tv_on: bool )
+					  (*working_state_lac: int ;*)
+
+	contract
+		var rule1, rule6 : bool;
+	let
+		rule1 = not (is_on_l1 & is_on_l2);(*sala de estar*)
+    	rule6 = not (has_presence & (not is_tv_on)) or (is_on_l1); (*Sala de estar presença*)
+
+	tel
+
+	enforce (rule1 &  rule6)
+		 with (c_l1, c_l3, c_l2, c_l4, c_lac, c2_lac: bool)
+
+	let
+		(*Sala de estar*)
+		has_presence = inlined living_room_presence(presence);
+		is_on_l1 = inlined living_room_lamp_1(turn_on_l1,c_l1, c_l2);
+		is_on_l2 = inlined living_room_lamp_1(turn_on_l2,c_l3, c_l4);
+		is_tv_on = inlined tv(turn_on_tv);
+		(*working_state_lac = inlined living_room_air_conditioner(turn_on_lac, c_lac, c2_lac);*)
+	tel
+	
+	(*################## Sala de estudo ####################*)
+	node supervisor_room( turn_on_rl, turn_on_l(*,turn_on_rac, c_rac, c2_rac*): bool) returns (is_on_rl, is_on_l: bool)
+						(*working_state_rac: int;*)
+
+	contract
+		var rule3: bool;
+	let
+		rule3 = not (is_on_rl & is_on_l);(*Sala de leitura*)
+	tel
+
+	enforce (rule3)
+		 with (c_l,c_l5: bool)
+
+	let
+		is_on_rl = inlined room_reading_lamp(turn_on_rl);
+		is_on_l = inlined room_lamp(turn_on_l, c_l, c_l5);
+		(*working_state_rac = inlined living_room_air_conditioner(turn_on_rac, c_rac, c2_rac);*)	
+
+	tel	
+
+	(*################## Geral ####################*)
+	node supervisor(presence, turn_on_l1, turn_on_l2, turn_on_rl, turn_on_l, turn_on_rac, turn_on_lac, turn_on_tv, turn_on_wm, do_open: bool) 
+	
+	returns (has_presence, is_on_l1, is_on_l2, is_tv_on, is_on_rl, is_on_l,  is_working_wm, is_w_opened: bool; 
+			working_state_rac, working_state_lac: int;)
+
+	contract
+		var rule2, rule5: bool;
+	let
+		rule2 = not (working_state_rac > 0 & working_state_lac > 0);(*Geral*)
+    	rule5 = not (is_w_opened) or (working_state_lac + working_state_rac = 0); (*Geral refrigeração*)
+	tel 
+
+	enforce (rule2 & rule5)
+		with ( c_lac, c2_lac, c_rac, c2_rac: bool)
+	let
+		(has_presence, is_on_l1, is_on_l2, is_tv_on) = supervisor_living(presence, turn_on_l1, turn_on_l2, turn_on_tv);
+		(is_on_rl, is_on_l) = supervisor_room( turn_on_rl, turn_on_l);
+		is_working_wm = inlined washing_machine(turn_on_wm);
+		is_w_opened = inlined window(do_open);
+		working_state_rac = inlined living_room_air_conditioner(turn_on_rac, c_rac, c2_rac);
+		working_state_lac = inlined living_room_air_conditioner(turn_on_lac, c_lac, c2_lac);
+		
+	tel
